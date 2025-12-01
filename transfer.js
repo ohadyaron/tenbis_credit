@@ -18,14 +18,61 @@ async function run() {
 
   const page = await context.newPage();
 
-  await page.goto("https://www.10bis.co.il/next/user/home", {
+  console.log("Navigating to 10bis user report page...");
+  await page.goto("https://www.10bis.co.il/next/user-report?dateBias=0", {
     waitUntil: "networkidle",
   });
 
-  await page.waitForSelector(".balance-amount");
+  console.log("Current URL:", page.url());
+  console.log("Looking for monthly usage ('נוצלו החודש')...");
 
-  const usedText = await page.$eval(".balance-amount", e => e.textContent);
-  const used = parseFloat(usedText.replace(/[^\d.]/g, ""));
+  // Find the "נוצלו החודש" (used this month) element
+  const used = await page.evaluate(() => {
+    const searchText = "נוצלו החודש";
+
+    // Find all text nodes containing "נוצלו החודש"
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    let node;
+    while (node = walker.nextNode()) {
+      if (node.textContent.includes(searchText)) {
+        // Found the text, now look for the amount in the parent container
+        let parent = node.parentElement;
+
+        // Go up to find the container
+        for (let i = 0; i < 5; i++) {
+          if (parent.parentElement) {
+            parent = parent.parentElement;
+          }
+        }
+
+        // Extract all text and find the amount before "נוצלו החודש"
+        const text = parent.innerText;
+        const lines = text.split('\n');
+
+        // Find the line with "נוצלו החודש" and get the previous line (the amount)
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(searchText) && i > 0) {
+            const amountLine = lines[i - 1];
+            // Extract number from the line (e.g., "₪0" -> 0)
+            const match = amountLine.match(/[\d,]+\.?\d*/);
+            if (match) {
+              return parseFloat(match[0].replace(/,/g, ''));
+            }
+          }
+        }
+      }
+    }
+
+    throw new Error("Could not find 'נוצלו החודש' on the page");
+  });
+
+  console.log(`Found monthly usage: ₪${used}`);
 
   const remaining = MONTHLY_BUDGET - used;
 
