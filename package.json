@@ -1,0 +1,10 @@
+{
+  "name": "tenbis-transfer",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node transfer.js"
+  },
+  "dependencies": {
+    "playwright": "^1.42.0"
+  }
+}
