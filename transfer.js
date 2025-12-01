@@ -93,13 +93,35 @@ async function run() {
   }
 
   // Continue with transfer...
+  console.log(`\nTransferring ₪${remaining} to 10bis credit...`);
 
-  await page.goto("https://www.10bis.co.il/next/user/transfer-balance");
-  await page.fill("#amountInput", String(remaining));
-  await page.click("#transferButton");
+  // Click on "הטענת תן ביס קרדיט" button (we're already on the balance page)
+  console.log("Step 1: Clicking 'הטענת תן ביס קרדיט' button...");
+  await page.click('text=הטענת תן ביס קרדיט');
 
-  await page.waitForSelector(".success-message");
-  console.log("Transfer completed!");
+  // Wait for popup to appear
+  await page.waitForTimeout(1000);
+
+  // Find the amount input in the popup
+  console.log("Step 2: Looking for amount input in popup...");
+  const amountInput = await page.locator('input[type="number"], input[type="text"]').first();
+
+  // Clear existing text and fill with our amount
+  console.log(`Step 3: Clearing input and filling ₪${remaining}...`);
+  await amountInput.click({ clickCount: 3 }); // Select all text
+  await amountInput.press('Backspace'); // Clear it
+  await amountInput.fill(String(remaining));
+
+  console.log("Step 4: Looking for submit button...");
+  // Find and click the submit/transfer button in the popup (המשך = Continue)
+  const submitButton = await page.locator('button:has-text("המשך"), button:has-text("אישור"), button:has-text("העבר"), button[type="submit"]').first();
+  await submitButton.click();
+
+  // Wait for success
+  console.log("Step 5: Waiting for transfer to complete...");
+  await page.waitForTimeout(3000);
+
+  console.log("✅ Transfer completed!");
   await browser.close();
 }
 
