@@ -1,0 +1,57 @@
+name: TenBis Monthly Transfer
+
+on:
+  schedule:
+    - cron: "0 17 * * *"   # 20:00 Israel time
+  workflow_dispatch:
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # needed for committing
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm install
+
+      - name: Check if last day of month
+        id: check
+        run: |
+          tomorrow=$(date -d "+1 day" +%d)
+          if [ "$tomorrow" = "01" ]; then
+            echo "run=yes" >> $GITHUB_OUTPUT
+          else
+            echo "run=no" >> $GITHUB_OUTPUT
+          fi
+
+      # 🟡 If NOT last day → only write the remaining amount
+      - name: Update remaining budget in repo
+        if: steps.check.outputs.run == 'no'
+        env:
+          TENBIS_SESSION_JSON: ${{ secrets.TENBIS_SESSION_JSON }}
+          CHECK_ONLY: "true"
+        run: |
+          npm start
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add status/budget-remaining.txt
+          git commit -m "Update budget remaining"
+          git push
+
+      # 🟢 If last day → run real transfer
+      - name: Run TenBis Transfer
+        if: steps.check.outputs.run == 'yes'
+        env:
+          TENBIS_SESSION_JSON: ${{ secrets.TENBIS_SESSION_JSON }}
+        run: npm start
